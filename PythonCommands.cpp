@@ -1,5 +1,4 @@
-#include <pybind11/pybind11.h>
-#include <string>
+#include <pybind11/embed.h>
 
 namespace py = pybind11;
 
@@ -9,8 +8,7 @@ int add(int a, int b) {
 }
 
 // Define the Python module
-PYBIND11_MODULE(myPythonModule, m) {
-    m.doc() = "pybind11 example plugin"; // Optional module docstring
+PYBIND11_MODULE(mush, m) {
 
     // Expose the 'add' function
     m.def("add", &add, "A function which adds two numbers");

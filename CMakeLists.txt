@@ -39,7 +39,7 @@ include_directories(${Python_INCLUDE_DIRS})
 link_directories(${Python_LIBRARY_DIRS})
 
 # test project
-add_executable(myApp main.cpp)
+add_executable(myApp main.cpp PythonCommands.cpp)
 
 target_link_libraries(myApp 
 ZLIB::ZLIB
@@ -56,8 +56,8 @@ OpenMayaRender
 OpenMayaUI 
 Foundation
 libfbxsdk.lib # on linux it will be different
-${Python_LIBRARIES}
+pybind11::module
 )
 
 # Add a Python module, No need to link myPythonModule with myApp
-pybind11_add_module(myPythonModule myPythonModule.cpp)
+pybind11_add_module(mush PythonCommands.cpp)

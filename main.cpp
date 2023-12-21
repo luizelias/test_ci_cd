@@ -83,7 +83,7 @@ int main() {
     py::scoped_interpreter guard{}; // start the interpreter and keep it alive
 
     try {
-        py::module_ myModule = py::module_::import("myPythonModule");
+        py::module_ myModule = py::module_::import("mush");
         // Call a function from your module (replace 'example_function' with an actual function name in your module)
         // int result = myModule.attr("example_function")(arg1, arg2).cast<int>();
 
