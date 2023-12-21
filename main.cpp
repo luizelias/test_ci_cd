@@ -1,58 +1,100 @@
-#include <glad/glad.h> // Glad must be included first
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <iostream>
+#include <zlib.h>
+#include <Alembic/Abc/Base.h>
 #include <Eigen/Dense>
-#include <Alembic/AbcGeom/All.h>
 #include <glm/glm.hpp>
 #include <fmt/core.h>
 #include <asio.hpp>
 #include <nlohmann/json.hpp>
+#include <curl/curl.h>
+#include <maya/MVector.h>
 
-#include <iostream>
-#include <thread>
+int main() {
+    // test zlib
+    std::cout << "Zlib version: " << ZLIB_VERSION << std::endl;
 
-int main()
-{
-    // Eigen test
-    Eigen::MatrixXd m(2, 2);
-    m(0, 0) = 3;
-    m(1, 0) = 2.5;
-    m(0, 1) = -1;
-    m(1, 1) = m(1, 0) + m(0, 1);
-    std::cout << "Eigen matrix:\n" << m << std::endl;
+    // test alembic
+    std::cout << "Alembic Library Version: "
+        << Alembic::Abc::GetLibraryVersion()
+        << std::endl;
 
-    // Alembic test (simple version string print)
-    std::cout << "Alembic version: " << Alembic::AbcGeom::GetLibraryVersion() << std::endl;
+    // test eigen
+    Eigen::Matrix4f M = Eigen::Matrix4f::Identity();
+    std::cout << "Eigen Matrix:\n" << M << std::endl;
 
-    // GLM test
-    glm::vec2 vec(1.0f, 2.0f);
-    std::cout << "GLM vector: (" << vec.x << ", " << vec.y << ")" << std::endl;
+    // test glm
+    glm::vec3 vec(1.0f, 2.0f, 3.0f);
+    std::cout << "GLM Vector: " << vec.x << ", " << vec.y << ", " << vec.z << "\n";
 
-    // fmt test
-    std::string formatted = fmt::format("Formatted number: {}", 42);
-    std::cout << formatted << std::endl;
+    // test fmt
+    std::string message = fmt::format("The answer is {}.", 42);
+    std::cout << message << std::endl;
 
-    // GLFW test
+    // test asio
+    try {
+        asio::io_context io_context;
+        std::cout << "ASIO initialized successfully." << std::endl;
+    }
+    catch (std::exception& e) {
+        std::cerr << "Failed to initialize ASIO: " << e.what() << std::endl;
+    }
+
+    // test nlohmann
+    nlohmann::json j;
+    j["name"] = "John Doe";
+    j["age"] = 30;
+    j["is_programmer"] = true;
+    std::cout << j << std::endl;
+
+    // test lib curl
+    CURL* curl = curl_easy_init();
+    if (curl) {
+        std::cout << "libcurl initialized successfully." << std::endl;
+        curl_easy_cleanup(curl);
+    }
+    else {
+        std::cerr << "Failed to initialize libcurl." << std::endl;
+    }
+
+    // test maya
+    MVector mv(1, 2, 3);
+    std::cout << "Maya Vector " << mv.x << ", " << mv.y << ", " << mv.z << std::endl;
+
+    // Initialize GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return -1;
     }
-    std::cout << "GLFW initialized" << std::endl;
+
+    // Create a windowed mode window and its OpenGL context
+    GLFWwindow* window = glfwCreateWindow(640, 480, "OpenGL Test", NULL, NULL);
+    if (!window) {
+        std::cerr << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+
+    // Make the window's context current
+    glfwMakeContextCurrent(window);
+
+    // Load GLAD
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+
+    std::cout << "OpenGL Version " << GLVersion.major << "." << GLVersion.minor << std::endl;
+    std::cout << "GLAD and GLFW initialized successfully" << std::endl;
+
+    // Loop until the user closes the window
+    while (!glfwWindowShouldClose(window)) {
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
     glfwTerminate();
-
-    // Glad test (dummy - normally used after a valid OpenGL context)
-    std::cout << "Glad loaded (context not created, dummy test)" << std::endl;
-
-    // Asio test
-    asio::io_context io_context;
-    asio::steady_timer t(io_context, asio::chrono::seconds(1));
-    t.wait();
-    std::cout << "Asio timer waited for 1 second" << std::endl;
-
-    // nlohmann_json test
-    nlohmann::json json;
-    json["name"] = "Luiz";
-    std::cout << "JSON example: " << json.dump() << std::endl;
-
     return 0;
 }
