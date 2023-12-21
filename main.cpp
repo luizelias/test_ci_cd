@@ -11,6 +11,9 @@
 #include <nlohmann/json.hpp>
 #include <curl/curl.h>
 #include <maya/MVector.h>
+#include <fbxsdk.h>
+#include <pybind11/embed.h> 
+namespace py = pybind11;
 
 int main() {
     // test zlib
@@ -62,6 +65,34 @@ int main() {
     // test maya
     MVector mv(1, 2, 3);
     std::cout << "Maya Vector " << mv.x << ", " << mv.y << ", " << mv.z << std::endl;
+
+    // test fbx
+    FbxManager* manager = FbxManager::Create();
+    if (manager == nullptr) {
+        std::cerr << "Error: Unable to create the FBX Manager. FBX SDK might not be installed correctly.\n";
+        return 1;
+    }
+    else {
+        std::cout << "FBX Manager created successfully. FBX SDK is installed correctly.\n";
+    }
+
+    // Clean up
+    manager->Destroy();
+
+    // test python
+    py::scoped_interpreter guard{}; // start the interpreter and keep it alive
+
+    try {
+        py::module_ myModule = py::module_::import("myPythonModule");
+        // Call a function from your module (replace 'example_function' with an actual function name in your module)
+        // int result = myModule.attr("example_function")(arg1, arg2).cast<int>();
+
+    }
+    catch (py::error_already_set& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
+
 
     // Initialize GLFW
     if (!glfwInit()) {
