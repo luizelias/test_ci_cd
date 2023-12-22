@@ -1,5 +1,7 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+// #include <glad/glad.h>
+// #include <GLFW/glfw3.h>
+// #include <fbxsdk.h>
+
 
 #include <iostream>
 #include <zlib.h>
@@ -11,9 +13,16 @@
 #include <nlohmann/json.hpp>
 #include <curl/curl.h>
 #include <maya/MVector.h>
-#include <fbxsdk.h>
 #include <pybind11/embed.h> 
 namespace py = pybind11;
+
+PYBIND11_EMBEDDED_MODULE(fast_calc, m) {
+    // `m` is a `py::module_` which is used to bind functions and classes
+    m.def("add", [](int i, int j) {
+        return i + j;
+    });
+}
+
 
 int main() {
     // test zlib
@@ -62,70 +71,69 @@ int main() {
         std::cerr << "Failed to initialize libcurl." << std::endl;
     }
 
-    // test maya
-    MVector mv(1, 2, 3);
-    std::cout << "Maya Vector " << mv.x << ", " << mv.y << ", " << mv.z << std::endl;
-
-    // test fbx
-    FbxManager* manager = FbxManager::Create();
-    if (manager == nullptr) {
-        std::cerr << "Error: Unable to create the FBX Manager. FBX SDK might not be installed correctly.\n";
-        return 1;
-    }
-    else {
-        std::cout << "FBX Manager created successfully. FBX SDK is installed correctly.\n";
-    }
-
-    // Clean up
-    manager->Destroy();
 
     // test python
-    py::scoped_interpreter guard{}; // start the interpreter and keep it alive
+    py::scoped_interpreter guard{};
 
     try {
-        py::module_ myModule = py::module_::import("mush");
-        // Call a function from your module (replace 'example_function' with an actual function name in your module)
-        // int result = myModule.attr("example_function")(arg1, arg2).cast<int>();
-
+        auto fast_calc = py::module_::import("fast_calc");
+        auto result = fast_calc.attr("add")(1, 2).cast<int>();
+        std::cout << "Result from Python add function: " << result << std::endl;
     }
     catch (py::error_already_set& e) {
         std::cerr << e.what() << std::endl;
         return 1;
     }
 
+    // Load GLAD
+    // if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    //     std::cerr << "Failed to initialize GLAD" << std::endl;
+    //     return -1;
+    // }
+
+    // std::cout << "OpenGL Version " << GLVersion.major << "." << GLVersion.minor << std::endl;
+    // std::cout << "GLAD and GLFW initialized successfully" << std::endl;
+
+        // test maya
+    MVector mv(1, 2, 3);
+    std::cout << "Maya Vector " << mv.x << ", " << mv.y << ", " << mv.z << std::endl;
+
+    // test fbx
+    // FbxManager* manager = FbxManager::Create();
+    // if (manager == nullptr) {
+    //     std::cerr << "Error: Unable to create the FBX Manager. FBX SDK might not be installed correctly.\n";
+    //     return 1;
+    // }
+    // else {
+    //     std::cout << "FBX Manager created successfully. FBX SDK is installed correctly.\n";
+    // }
+
+    // // Clean up
+    // manager->Destroy();
 
     // Initialize GLFW
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return -1;
-    }
+    // if (!glfwInit()) {
+    //     std::cerr << "Failed to initialize GLFW" << std::endl;
+    //     return -1;
+    // }
 
-    // Create a windowed mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(640, 480, "OpenGL Test", NULL, NULL);
-    if (!window) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
+    // // Create a windowed mode window and its OpenGL context
+    // GLFWwindow* window = glfwCreateWindow(640, 480, "OpenGL Test", NULL, NULL);
+    // if (!window) {
+    //     std::cerr << "Failed to create GLFW window" << std::endl;
+    //     glfwTerminate();
+    //     return -1;
+    // }
 
-    // Make the window's context current
-    glfwMakeContextCurrent(window);
+    // // Make the window's context current
+    // glfwMakeContextCurrent(window);
 
-    // Load GLAD
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        return -1;
-    }
+    // // Loop until the user closes the window
+    // while (!glfwWindowShouldClose(window)) {
+    //     glfwSwapBuffers(window);
+    //     glfwPollEvents();
+    // }
 
-    std::cout << "OpenGL Version " << GLVersion.major << "." << GLVersion.minor << std::endl;
-    std::cout << "GLAD and GLFW initialized successfully" << std::endl;
-
-    // Loop until the user closes the window
-    while (!glfwWindowShouldClose(window)) {
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-
-    glfwTerminate();
+    // glfwTerminate();
     return 0;
 }

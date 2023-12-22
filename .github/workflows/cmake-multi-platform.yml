@@ -1,27 +1,120 @@
 name: CI Build
 
 on:
-  workflow_dispatch:
+  workflow-dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
 
-    container:
-      image: luizelias/windows10
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
       with:
         fetch-depth: 0
 
+    - name: Cache vcpkg, maya, fbx
+      uses: actions/cache@v2
+      with:
+        path: |
+          vcpkg_installed/
+          dependencies/fbx/
+          dependencies/maya/
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
+
+    - name: Set up vcpkg
+      if: startsWith(matrix.os, 'ubuntu-')
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        git checkout 2023.12.12
+        ./bootstrap-vcpkg.sh
+        chmod +x vcpkg
+        ./vcpkg integrate install
+        sudo apt-get install -y libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
+        cd ..
+
+    - name: Set up vcpkg on Windows
+      if: startsWith(matrix.os, 'windows-')
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        git checkout 2023.12.12
+        .\bootstrap-vcpkg.bat
+        .\vcpkg integrate install
+        cd ..
+
+    # - name: Set up vcpkg on CentOS
+    #   if: startsWith(matrix.os, 'centos-')
+    #   run: |
+    #     git clone https://github.com/Microsoft/vcpkg.git
+    #     cd vcpkg
+    #     git checkout 2023.12.12
+    #     ./bootstrap-vcpkg.sh
+    #     chmod +x vcpkg
+    #     ./vcpkg integrate install
+    #     sudo yum install -y libXinerama-devel libXcursor-devel libXrandr-devel mesa-libGLU-devel pkgconfig
+    #     cd ..
+
+    # - name: Install Autodesk FBX on Windows
+    #   if: startsWith(matrix.os, 'windows-')
+    #   run: |
+    #     mkdir -p dependencies/fbx
+    #     curl -o ./dependencies/fbx/fbx202034_fbxsdk_vs2022_win.exe https://www.autodesk.com/content/dam/autodesk/www/adn/fbx/2020-3-4/fbx202034_fbxsdk_vs2022_win.exe
+    #     ./dependencies/fbx/fbx202034_fbxsdk_vs2022_win.exe /quiet
+
+    # - name: Install Autodesk FBX on Linux
+    #   if: startsWith(matrix.os, 'ubuntu-') || startsWith(matrix.os, 'centos-')
+    #   run: |
+    #     mkdir -p ./dependencies/fbx
+    #     tar -xzvf fbx202034_fbxsdk_linux.tar.gz
+    #     chmod ugo+x fbx202034_fbxsdk_linux
+    #     ./fbx202034_fbxsdk_linux ./dependencies/fbx
+
+    - name: Install Autodesk Maya on Windows
+      if: startsWith(matrix.os, 'windows-')
+      run: |
+        mkdir -p dependencies/maya
+        curl -o dependencies/maya/maya_installer.zip https://autodesk-adn-transfer.s3-us-west-2.amazonaws.com/ADN+Extranet/M%26E/Maya/devkit+2024/Autodesk_Maya_2024_2_Update_DEVKIT_Windows.zip
+        Expand-Archive -Path ./dependencies/maya/maya_installer.zip -DestinationPath ./dependencies/maya
+
+    - name: Install Autodesk Maya on Linux
+      if: startsWith(matrix.os, 'ubuntu-') || startsWith(matrix.os, 'centos-')
+      run: |
+        mkdir -p dependencies/maya
+        curl -o maya_installer.tgz https://autodesk-adn-transfer.s3-us-west-2.amazonaws.com/ADN+Extranet/M%26E/Maya/devkit+2024/Autodesk_Maya_2024_2_Update_DEVKIT_Linux.tgz
+        tar -xzvf maya_installer.tgz -C dependencies/maya
+
+    - name: Install dependencies
+      if: startsWith(matrix.os, 'ubuntu-')
+      run: |
+        cd vcpkg
+        ./vcpkg install alembic eigen3 glm glad glfw3 fmt asio curl nlohmann-json pybind11 libxml2
+        cd ..
+
+    - name: Install dependencies on Windows
+      if: startsWith(matrix.os, 'windows-')
+      run: |
+        cd vcpkg
+        .\vcpkg install alembic eigen3 glm glad glfw3 fmt asio curl nlohmann-json pybind11 libxml2
+        cd ..
+
+    # - name: Install dependencies on CentOS
+    #   if: startsWith(matrix.os, 'centos-')
+    #   run: |
+    #     cd vcpkg
+    #     ./vcpkg install alembic eigen3 glm glad glfw3 fmt asio curl nlohmann-json pybind11 libxml2
+    #     cd ..
+
     - name: Configure CMake
-      run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake
+      run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
 
     - name: Build
       run: cmake --build build --config Release
 
     - name: Test
-      run: ./build/HelloWorld
-
-    # Add additional steps as necessary, e.g., for packaging or deploying the build artifacts.
+      run: ./build/myProject
