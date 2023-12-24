@@ -1,38 +1,34 @@
-name: CI Build
-
+name: Test CI/CD Build
 on:
-  push
-
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-
+        os: [ubuntu-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-
+          
       - name: Cache vcpkg, maya, fbx
         id: cache-dependencies
         uses: actions/cache@v2
         with:
           path: |
             vcpkg/
-            dependencies/fbx/
-            dependencies/maya/
+            fbx/
+            fbx-sdk/
+            maya/
           key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
-            vcpkg-${{ runner.os }}-
-            vcpkg-
+            vcpkg-${{ runner.os }}
 
       - name: Set up vcpkg on Ubuntu
-        if: startsWith(matrix.os, 'ubuntu-')
+        if: startsWith(matrix.os, 'ubuntu-') && steps.cache-dependencies.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/Microsoft/vcpkg.git
           cd vcpkg
@@ -41,54 +37,61 @@ jobs:
           chmod +x vcpkg
           ./vcpkg integrate install
           sudo apt-get install -y libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
-          cd ..
+          cd ${{ github.workspace }}
 
       - name: Set up vcpkg on Windows
-        if: startsWith(matrix.os, 'windows-')
+        if: startsWith(matrix.os, 'windows-') && steps.cache-dependencies.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/Microsoft/vcpkg.git
           cd vcpkg
           git checkout 2023.12.12
           .\bootstrap-vcpkg.bat
           .\vcpkg integrate install
-          cd ..
+          cd ${{ github.workspace }}
 
       - name: Install FBX SDK on Windows
         if: startsWith(matrix.os, 'windows-') && steps.cache-dependencies.outputs.cache-hit != 'true'
         run: |
-          mkdir -p dependencies/fbx
-          curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" -o fbx202034_fbxsdk_vs2022_win.exe  https://www.autodesk.com/content/dam/autodesk/www/adn/fbx/2020-3-4/fbx202034_fbxsdk_vs2022_win.exe
-
-      - name: Install FBX SDK on Linux
-        if: startsWith(matrix.os, 'ubuntu-') || startsWith(matrix.os, 'centos-') && steps.cache-dependencies.outputs.cache-hit != 'true'
+          mkdir -p fbx-sdk
+          mkdir -p fbx
+          curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" -o fbx-sdk/fbx202034_fbxsdk_vs2022_win.exe  https://www.autodesk.com/content/dam/autodesk/www/adn/fbx/2020-3-4/fbx202034_fbxsdk_vs2022_win.exe
+          fbx-sdk/fbx202034_fbxsdk_vs2022_win.exe /S /D=${{ github.workspace }}\fbx
+          cd ${{ github.workspace }}
+         
+      - name: Install FBX SDK on Ubuntu
+        if: startsWith(matrix.os, 'ubuntu-') || startsWith(matrix.os, 'ubuntu-') && steps.cache-dependencies.outputs.cache-hit != 'true'
         run: |
-          mkdir -p ./dependencies/fbx
+          mkdir -p fbx
           tar -xzvf fbx202034_fbxsdk_linux.tar.gz
           chmod ugo+x fbx202034_fbxsdk_linux
           echo 'yes' > response.txt
           echo 'n' >> response.txt
-          ./fbx202034_fbxsdk_linux ./dependencies/fbx < response.txt
+          ./fbx202034_fbxsdk_linux fbx < response.txt
+          cd ${{ github.workspace }}
 
       - name: Install Maya SDK on Windows
         if: startsWith(matrix.os, 'windows-') && steps.cache-dependencies.outputs.cache-hit != 'true'
         run: |
-          mkdir -p dependencies/maya
-          curl -o dependencies/maya/maya_installer.zip https://autodesk-adn-transfer.s3-us-west-2.amazonaws.com/ADN+Extranet/M%26E/Maya/devkit+2024/Autodesk_Maya_2024_2_Update_DEVKIT_Windows.zip
-          Expand-Archive -Path ./dependencies/maya/maya_installer.zip -DestinationPath ./dependencies/maya
+          mkdir -p maya
+          curl -o maya_installer.zip https://autodesk-adn-transfer.s3-us-west-2.amazonaws.com/ADN+Extranet/M%26E/Maya/devkit+2024/Autodesk_Maya_2024_2_Update_DEVKIT_Windows.zip
+          Expand-Archive -Path maya_installer.zip -DestinationPath maya
+              cd ${{ github.workspace }}
 
-      - name: Install Maya SDK on Linux
-        if: startsWith(matrix.os, 'ubuntu-') || startsWith(matrix.os, 'centos-') && steps.cache-dependencies.outputs.cache-hit != 'true'
+      - name: Install Maya SDK on Ubuntu
+        if: startsWith(matrix.os, 'ubuntu-') || startsWith(matrix.os, 'ubuntu-') && steps.cache-dependencies.outputs.cache-hit != 'true'
         run: |
-          mkdir -p dependencies/maya
+          mkdir -p maya
           curl -o maya_installer.tgz https://autodesk-adn-transfer.s3-us-west-2.amazonaws.com/ADN+Extranet/M%26E/Maya/devkit+2024/Autodesk_Maya_2024_2_Update_DEVKIT_Linux.tgz
-          tar -xzvf maya_installer.tgz -C dependencies/maya
+          cd maya
+          tar xzvf ../maya_installer.tgz
+          cd ${{ github.workspace }}
 
-      - name: Install dependencies
+      - name: Install dependencies on Ubuntu
         if: startsWith(matrix.os, 'ubuntu-') && steps.cache-dependencies.outputs.cache-hit != 'true'
         run: |
           cd vcpkg
           ./vcpkg install alembic eigen3 glm glad glfw3 fmt asio curl nlohmann-json pybind11 libxml2
-          cd ..
+          cd ${{ github.workspace }}
 
       - name: Install dependencies on Windows
         if: startsWith(matrix.os, 'windows-') && steps.cache-dependencies.outputs.cache-hit != 'true'
@@ -97,52 +100,41 @@ jobs:
           cd vcpkg
           .\vcpkg install eigen3 glm glad glfw3 fmt asio curl nlohmann-json pybind11 libxml2
           .\vcpkg install alembic:x64-windows
-          cd ..
-      
-      - name: Archive Linux Installer
-        if: startsWith(matrix.os, 'ubuntu-')
-        run: |
           cd ${{ github.workspace }}
-          tar -czvf installer_linux.tar.gz vcpkg/ dependencies/fbx/ dependencies/maya/
-
-      - name: Archive Windows Installer
-        if: startsWith(matrix.os, 'windows-latest') 
-        run: |
-          cd ${{ github.workspace }}
-          tar -czvf installer_windows.tar.gz vcpkg/ dependencies/fbx/ dependencies/maya/
-      
-      - uses: actions/upload-artifact@v2
-        if: startsWith(matrix.os, 'windows-latest')
-        with:
-          name: installer-windows
-          path: ${{ github.workspace }}/installer_windows.tar.gz
-      
-      - uses: actions/upload-artifact@v2
-        if: startsWith(matrix.os, 'ubuntu-latest')
-        with:
-          name: installer-linux
-          path: ${{ github.workspace }}/installer_linux.tar.gz
-
+            
       - name: Configure Ubuntu CMake
-        continue-on-error: true
         if: startsWith(matrix.os, 'ubuntu-')
-        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: |
+          sudo apt-get -y install libtbb-dev android-libbase
+          sudo apt update
+          sudo ldconfig
+          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
+          cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
 
       - name: Configure Windows CMake
-        continue-on-error: true
         if: startsWith(matrix.os, 'windows-latest')
-        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=D:/a/test_ci_cd/test_ci_cd/vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: |
+          cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake
 
-      # Uncomment the following lines when ready to build and test
       - name: Build
-        continue-on-error: true
-        run: cmake --build build --config Release
+        run: |
+          cmake --build build --config Release
 
       - name: Test
-        continue-on-error: true
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             ./build/myProject.exe
           else
             ./build/myProject
           fi
+      - uses: actions/upload-artifact@v2
+        if: startsWith(matrix.os, 'windows-latest')
+        with:
+          name: windows-build.exe
+          path: ./build/myProject.exe
+      
+      - uses: actions/upload-artifact@v2
+        if: startsWith(matrix.os, 'ubuntu-latest')
+        with:
+          name: unix-myProject
+          path: ./build/myProject
